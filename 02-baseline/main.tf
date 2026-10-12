@@ -1,9 +1,9 @@
 /**
  * Layer 2: Baseline (gcp-project-baseline)
- * Powered by Cloud Foundation Fabric (CFF)
+ * Powered by Google Cloud Foundation Fabric (CFF)
  * 
  * 1 MR TO THIS REPO VENDS & UPDATES FLEET-WIDE PROJECT BASELINES VIA `for_each`:
- * - Native Nemo IPAM CIDR Subnet Provisioning in ECN Shared VPC
+ * - Automated IPAM CIDR Subnet Provisioning in Shared VPC
  * - Automatic VPC Service Controls (VPC-SC) Perimeter Membership
  * - Automated CMEK & Least-Privilege IAM Baseline
  */
@@ -22,8 +22,8 @@ locals {
   # Ingest the projects registry
   projects_data = yamldecode(file("${path.module}/config/projects.yaml")).projects
   
-  host_project_id = "bkg-ecn-net-prod-eu"
-  shared_vpc_name = "bkg-shared-vpc-eu4"
+  host_project_id = "corp-net-hub-prod-eu"
+  shared_vpc_name = "corp-shared-vpc-eu4"
   region          = "europe-west4"
 }
 
@@ -42,10 +42,10 @@ module "service_projects" {
   services = each.value.services
 
   labels = {
-    environment    = each.value.environment
-    team           = each.value.team
-    managed-by     = "terraform-cff"
-    nemo-res-id    = lower(each.value.nemo_reservation_id)
+    environment = each.value.environment
+    team        = each.value.team
+    managed-by  = "terraform-cff"
+    ipam-res-id = lower(each.value.ipam_reservation_id)
   }
 
   shared_vpc_service_config = {
@@ -54,14 +54,14 @@ module "service_projects" {
 }
 
 # ------------------------------------------------------------------------------
-# 2. Automated Nemo IPAM Subnet Creation in ECN Shared VPC
+# 2. Automated Enterprise IPAM Subnet Creation in Shared VPC
 # Eliminates manual IP allocation and prevents on-prem BGP overlap
 # ------------------------------------------------------------------------------
-resource "google_compute_subnetwork" "nemo_subnets" {
+resource "google_compute_subnetwork" "ipam_subnets" {
   for_each = local.projects_data
 
   name          = "sub-${each.key}-${local.region}"
-  ip_cidr_range = each.value.nemo_allocated_cidr
+  ip_cidr_range = each.value.ipam_allocated_cidr
   region        = local.region
   network       = "projects/${local.host_project_id}/global/networks/${local.shared_vpc_name}"
   project       = local.host_project_id
@@ -76,7 +76,7 @@ resource "google_compute_subnetwork" "nemo_subnets" {
 }
 
 # ------------------------------------------------------------------------------
-# 3. Grant Service Project Cloud Run Service Agent access to use Nemo Subnet
+# 3. Grant Service Project Cloud Run Service Agent access to use Subnet
 # Enables Direct VPC Egress without Serverless VPC Connectors
 # ------------------------------------------------------------------------------
 resource "google_compute_subnetwork_iam_member" "cloudrun_network_user" {
@@ -84,7 +84,7 @@ resource "google_compute_subnetwork_iam_member" "cloudrun_network_user" {
 
   project    = local.host_project_id
   region     = local.region
-  subnetwork = google_compute_subnetwork.nemo_subnets[each.key].name
+  subnetwork = google_compute_subnetwork.ipam_subnets[each.key].name
   role       = "roles/compute.networkUser"
   member     = "serviceAccount:service-${module.service_projects[each.key].number}@serverless-robot-prod.iam.gserviceaccount.com"
 }

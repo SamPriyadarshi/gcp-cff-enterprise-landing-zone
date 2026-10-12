@@ -1,6 +1,6 @@
 /**
  * Layer 1: Foundations (gcp-org-foundations)
- * Powered by Cloud Foundation Fabric (CFF)
+ * Powered by Google Cloud Foundation Fabric (CFF)
  * 
  * 1 MR TO THIS REPO GOVERNS THE ENTIRE ORGANIZATION VIA INHERITANCE:
  * - Enterprise Folder Hierarchy
@@ -19,13 +19,13 @@ terraform {
 }
 
 variable "organization_id" {
-  description = "Booking.com Google Cloud Organization ID"
+  description = "Enterprise Google Cloud Organization ID"
   type        = string
   default     = "organizations/123456789012"
 }
 
 variable "billing_account" {
-  description = "Booking.com Master Cloud Billing Account"
+  description = "Master Cloud Billing Account ID"
   type        = string
   default     = "01ABCD-23EF45-6789GH"
 }
@@ -45,8 +45,8 @@ module "org_folders" {
 # 2. CIS v3.0 Organization Policies (Applied at Org Root)
 # ------------------------------------------------------------------------------
 module "org_policies" {
-  source    = "github.com/GoogleCloudPlatform/cloud-foundation-fabric//modules/organization?ref=v34.0.0"
-  org_id    = var.organization_id
+  source = "github.com/GoogleCloudPlatform/cloud-foundation-fabric//modules/organization?ref=v34.0.0"
+  org_id = var.organization_id
 
   org_policies = {
     # Prohibit external service account key creation (Forces Workload Identity / WIF)
@@ -73,9 +73,9 @@ module "org_policies" {
 # Captures Org-level administrative blind spots (Org Policy changes, IAM superadmins)
 # ------------------------------------------------------------------------------
 resource "google_logging_organization_sink" "org_admin_audit_sink" {
-  name        = "bkg-org-admin-audit-sink"
+  name        = "corp-org-admin-audit-sink"
   org_id      = replace(var.organization_id, "organizations/", "")
-  destination = "logging.googleapis.com/projects/bkg-security-logging-prod/locations/global/buckets/org-audit-bucket"
+  destination = "logging.googleapis.com/projects/corp-sec-logging-prod/locations/global/buckets/org-audit-bucket"
 
   filter = <<-EOT
     logName:"logs/cloudaudit.googleapis.com%2Factivity" OR

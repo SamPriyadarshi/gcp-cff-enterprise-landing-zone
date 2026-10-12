@@ -1,41 +1,41 @@
-# Central Inventory Registry consumed by Layer 2 Project Factory
-# In production, this can be automatically updated via Booking's Passport API
+# Central Project Registry consumed by Layer 2 Project Factory
+# In production, this can be automatically updated via an internal Developer Portal or Project Vending API
 
 projects:
-  bkg-prod-analytics-eu:
+  corp-prod-analytics-eu:
     folder_id: "folders/9876543210"
     billing_account: "01ABCD-23EF45-6789GH"
     environment: "production"
     team: "data-analytics"
-    nemo_allocated_cidr: "10.168.42.0/24"
-    nemo_reservation_id: "NEMO-RES-9912"
+    ipam_allocated_cidr: "10.168.42.0/24"
+    ipam_reservation_id: "IPAM-RES-9912"
     services:
       - "bigquery.googleapis.com"
       - "bigquerystorage.googleapis.com"
       - "run.googleapis.com"
-    vpc_sc_perimeter: "accessPolicies/123456/servicePerimeters/bkg_prod_perimeter"
+    vpc_sc_perimeter: "accessPolicies/123456/servicePerimeters/corp_prod_perimeter"
 
-  bkg-prod-vertex-eu:
+  corp-prod-vertex-eu:
     folder_id: "folders/9876543211"
     billing_account: "01ABCD-23EF45-6789GH"
     environment: "production"
     team: "ml-engineering"
-    nemo_allocated_cidr: "10.168.43.0/24"
-    nemo_reservation_id: "NEMO-RES-9913"
+    ipam_allocated_cidr: "10.168.43.0/24"
+    ipam_reservation_id: "IPAM-RES-9913"
     services:
       - "aiplatform.googleapis.com"
       - "storage.googleapis.com"
       - "run.googleapis.com"
-    vpc_sc_perimeter: "accessPolicies/123456/servicePerimeters/bkg_prod_perimeter"
+    vpc_sc_perimeter: "accessPolicies/123456/servicePerimeters/corp_prod_perimeter"
 
-  bkg-staging-analytics-eu:
+  corp-staging-analytics-eu:
     folder_id: "folders/9876543212"
     billing_account: "01ABCD-23EF45-6789GH"
     environment: "staging"
     team: "data-analytics"
-    nemo_allocated_cidr: "10.168.100.0/24"
-    nemo_reservation_id: "NEMO-RES-8841"
+    ipam_allocated_cidr: "10.168.100.0/24"
+    ipam_reservation_id: "IPAM-RES-8841"
     services:
       - "bigquery.googleapis.com"
       - "run.googleapis.com"
-    vpc_sc_perimeter: "accessPolicies/123456/servicePerimeters/bkg_staging_perimeter"
+    vpc_sc_perimeter: "accessPolicies/123456/servicePerimeters/corp_staging_perimeter"

@@ -21,7 +21,7 @@ terraform {
 variable "project_id" {
   description = "Target Service Project provisioned by Layer 2"
   type        = string
-  default     = "bkg-prod-analytics-eu"
+  default     = "corp-prod-analytics-eu"
 }
 
 variable "location" {
@@ -60,7 +60,7 @@ resource "google_bigquery_table" "orders" {
   [
     {"name": "order_id", "type": "STRING", "mode": "REQUIRED"},
     {"name": "customer_id", "type": "STRING", "mode": "REQUIRED"},
-    {"name": "booking_total", "type": "FLOAT", "mode": "REQUIRED"},
+    {"name": "transaction_total", "type": "FLOAT", "mode": "REQUIRED"},
     {"name": "order_timestamp", "type": "TIMESTAMP", "mode": "REQUIRED"}
   ]
   EOF
@@ -71,7 +71,7 @@ resource "google_bigquery_table" "orders" {
 # Allows downstream consumers to read without breaking dataset ID dependencies
 # ------------------------------------------------------------------------------
 resource "google_bigquery_table" "legacy_proxy_view" {
-  project    = "bkg-legacy-analytics-old" # Legacy Project
+  project    = "corp-legacy-analytics-old" # Legacy Project
   dataset_id = "marketing_analytics"
   table_id   = "orders" # Downstream queries target this view transparently
 

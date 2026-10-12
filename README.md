@@ -1,54 +1,55 @@
-# Booking.com GCP Landing Zone — 3-Layer CFF Reference Architecture
+# Enterprise Google Cloud Landing Zone — 3-Layer CFF Reference Architecture
 
-This repository demonstrates the production-grade **3-Layer Infrastructure-as-Code (IaC)** architecture powered by **Google Cloud Foundation Fabric (CFF)** tailored specifically for **Booking.com's enterprise scale and serverless footprint**.
+[![Terraform](https://img.shields.io/badge/Terraform-%3E%3D1.5.0-623CE4?logo=terraform)](https://www.terraform.io/)
+[![Google Cloud Foundation Fabric](https://img.shields.io/badge/CFF-v34.0.0-4285F4?logo=google-cloud)](https://github.com/GoogleCloudPlatform/cloud-foundation-fabric)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+
+A production-grade, open-source reference architecture demonstrating a **3-Layer Infrastructure-as-Code (IaC)** model built with **Google Cloud Foundation Fabric (CFF)**. Designed for hyperscale enterprise environments characterized by **automated project vending, centralized IPAM, Shared VPC networking, and serverless Data & AI workloads**.
 
 ---
 
-## 🏛️ Do We Still Maintain 3 Layers with CFF?
+## 🏛️ Architectural Overview: The 3-Layer Decoupled Model
 
-**Yes, absolutely.** In fact, maintaining the 3-Layer separation is **even more critical and elegant with CFF** than with legacy frameworks.
+In enterprise environments with hundreds of projects, bundling organization policies and application workloads into a single Terraform state leads to catastrophic blast radiuses, slow plans, and state locking contention.
 
-### Why 3 Layers are Non-Negotiable at Booking.com Scale:
+This reference implements a strictly decoupled 3-tier structure:
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
-│  Layer 1: Foundations (gcp-org-foundations)                            │
-│  • Owner: Central Platform & SecOps Architecture                       │
+│  Layer 1: Foundations (01-foundations)                                 │
+│  • Owner: Central Cloud Platform & SecOps Architecture                 │
 │  • Scope: Org Policies (CIS v3.0), Folder Hierarchy, Root Log Sinks    │
 │  • Impact: 1 Merge Request updates the entire Google Cloud Org         │
 └───────────────────────────────────┬────────────────────────────────────┘
-                                    │ (Inherited via Resource Manager)
+                                    │ (Auto-Inherited via Resource Manager)
 ┌───────────────────────────────────▼────────────────────────────────────┐
-│  Layer 2: Baseline Project Factory (gcp-project-baseline)              │
-│  • Owner: Core Platform Team (Automated via Passport & Nemo IPAM API)  │
-│  • Scope: Service Projects, Nemo Subnets in Shared VPC, VPC-SC, IAM    │
+│  Layer 2: Baseline Project Factory (02-baseline)                       │
+│  • Owner: Core Platform (Triggered via Project Vending API / CI/CD)    │
+│  • Scope: Service Projects, IPAM Subnets in Shared VPC, VPC-SC, IAM    │
 │  • Impact: 1 Merge Request updates fleet-wide project baselines (500+) │
 └───────────────────────────────────┬────────────────────────────────────┘
-                                    │ (Vends Compliant Foundation)
+                                    │ (Vends Standardized Foundation)
 ┌───────────────────────────────────▼────────────────────────────────────┐
 │  Layer 3: Workload Applications (03-workload-apps)                     │
 │  • Owner: Product & Data Engineering Teams (Decentralized)             │
-│  • Scope: BigQuery Schemas, Vertex AI Models, Cloud Run Containers     │
+│  • Scope: BigQuery Schemas, Vertex AI Endpoints, Cloud Run Services    │
 │  • Impact: Continuous daily CI/CD without touching platform plumbing   │
 └────────────────────────────────────────────────────────────────────────┘
 ```
-
-1. **Blast Radius Control:** A developer updating a BigQuery schema in Layer 3 must **never** have the IAM permissions or capability to accidentally drift an Organization Policy or a root Log Sink.
-2. **Independent CI/CD Pipelines:** Layer 1 changes once a quarter; Layer 2 triggers on-demand when projects are vended via Passport; Layer 3 deploys tens of times a day.
-3. **Audit & Compliance Isolation:** External auditors and CSIRT only need to inspect Layer 1 and 2 for PCI/SOC2 compliance.
 
 ---
 
 ## 🚀 Repository Structure
 
 ```
+gcp-cff-enterprise-landing-zone/
 ├── 01-foundations/                  # Layer 1: Org Foundations (CFF modules)
-│   └── main.tf                      # Folders, CIS Org Policies, Org Root Log Sink
+│   └── main.tf                      # Folders, CIS Org Policies, Root Audit Log Sink
 │
 ├── 02-baseline/                     # Layer 2: Project Factory & Networking Baseline
 │   ├── config/
 │   │   └── projects.yaml            # Fleet registry (consumed by for_each)
-│   └── main.tf                      # Automated Nemo IPAM subnets + Shared VPC attachment
+│   └── main.tf                      # Automated IPAM subnets + Shared VPC attachment
 │
 └── 03-workload-apps/                # Layer 3: Application & Data Workloads
     └── team-marketing-analytics/
@@ -57,40 +58,65 @@ This repository demonstrates the production-grade **3-Layer Infrastructure-as-Co
 
 ---
 
-## ⚡ Key Architectural Innovations in this Reference
+## ⚡ Key Architectural Patterns
 
-### 1. Native Nemo IPAM & ECN Shared VPC Automation (Layer 2)
-Subnets in the ECN Shared VPC are provisioned dynamically from the CIDR allocated by Booking's internal **Nemo IPAM API**:
+### 1. Dynamic IPAM Subnet Allocation (Layer 2)
+Subnets in the Shared VPC are provisioned dynamically from CIDRs allocated by an enterprise IPAM platform (e.g., Infoblox, NetBox, or internal REST APIs), guaranteeing zero IP overlap across hybrid datacenters:
+
 ```hcl
-resource "google_compute_subnetwork" "nemo_subnets" {
+resource "google_compute_subnetwork" "ipam_subnets" {
   for_each      = local.projects_data
   name          = "sub-${each.key}-${local.region}"
-  ip_cidr_range = each.value.nemo_allocated_cidr # Injected from Nemo IPAM
-  network       = "projects/bkg-ecn-net-prod-eu/global/networks/bkg-shared-vpc-eu4"
+  ip_cidr_range = each.value.ipam_allocated_cidr # Injected from IPAM registry
+  network       = "projects/corp-net-hub-prod-eu/global/networks/corp-shared-vpc-eu4"
 }
 ```
 
-### 2. BigQuery Zero-Downtime Authorized View Redirect Proxy (Layer 3)
-When datasets migrate between projects, downstream queries continue without disruption using delegated views:
+### 2. BigQuery Zero-Downtime Migration Pattern (Layer 3)
+When migrating datasets to new landing zone projects with different project IDs, downstream dashboards and microservices continue querying without breakage via the **Authorized View Redirect Proxy** pattern:
+
 ```hcl
 resource "google_bigquery_table" "legacy_proxy_view" {
-  project    = "bkg-legacy-analytics-old"
+  project    = "corp-legacy-analytics-old"
   dataset_id = "marketing_analytics"
   table_id   = "orders"
 
   view {
-    query          = "SELECT * FROM `bkg-prod-analytics-eu.marketing_analytics.orders`"
+    query          = "SELECT * FROM `corp-prod-analytics-eu.marketing_analytics.orders`"
     use_legacy_sql = false
   }
 }
 ```
 
----
-
-## 🤝 Pythian Alignment: Why CFF Accelerates Delivery
-- **Composability:** CFF provides transparent, single-layer modules that make passing Nemo IPAM parameters effortless.
-- **Velocity:** Pythian doesn't need to write custom wrapper code around deeply nested CFT modules.
-- **Day-2 Operations:** Booking.com platform engineers get clean, standard HCL they can easily maintain.
+### 3. Serverless Direct VPC Egress
+Bypasses legacy Serverless VPC Access connector VMs. Cloud Run services attach directly to the enterprise Shared VPC subnet at line rate with zero connector management overhead.
 
 ---
-*Maintained by Samrat Priyadarshi (Google Cloud PSO Engagement Lead & Delivery Architect)*
+
+## 🛠️ Getting Started
+
+### Prerequisites
+- [Terraform](https://developer.hashicorp.com/terraform/downloads) >= 1.5.0
+- Google Cloud SDK (`gcloud`) authenticated with administrative permissions
+
+### Deployment Sequence
+1. **Deploy Foundations:**
+   ```bash
+   cd 01-foundations
+   terraform init && terraform plan
+   ```
+2. **Deploy Baseline Projects:**
+   ```bash
+   cd ../02-baseline
+   terraform init && terraform plan
+   ```
+3. **Deploy Workload Apps:**
+   ```bash
+   cd ../03-workload-apps/team-marketing-analytics
+   terraform init && terraform plan
+   ```
+
+---
+
+## 📄 License
+Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for details.
