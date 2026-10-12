@@ -1,23 +1,30 @@
 /**
- * Authorized View Redirect Proxy Pattern
+ * Legacy Project Proxy Dataset & Authorized View
+ * Powered by Google Cloud Foundation Fabric (CFF) bigquery-dataset module
  * 
  * Mitigates downstream breakage when moving datasets between projects.
  * Downstream consumers (Looker, ETL microservices) querying `legacy_project.dataset.table`
  * seamlessly read from the new Landing Zone project via this delegated authorized view.
  */
 
-resource "google_bigquery_table" "legacy_proxy_view" {
-  project    = var.legacy_project_id
-  dataset_id = var.dataset_id
-  table_id   = "orders"
-
-  view {
-    query          = "SELECT * FROM `${var.project_id}.${google_bigquery_dataset.marketing_analytics.dataset_id}.${google_bigquery_table.orders.table_id}`"
-    use_legacy_sql = false
-  }
+module "legacy_proxy_dataset" {
+  source     = "github.com/GoogleCloudPlatform/cloud-foundation-fabric//modules/bigquery-dataset?ref=v34.0.0"
+  project_id = var.legacy_project_id
+  id         = var.dataset_id
+  location   = var.location
 
   labels = {
     lifecycle_phase = "migration-proxy-view"
     target_project  = var.project_id
+    managed-by      = "terraform-cff"
+  }
+
+  # Authorized View redirecting queries to the target Landing Zone table
+  views = {
+    orders = {
+      friendly_name  = "Orders Migration Proxy View"
+      query          = "SELECT * FROM `${var.project_id}.${var.dataset_id}.orders`"
+      use_legacy_sql = false
+    }
   }
 }
